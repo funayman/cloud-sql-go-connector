@@ -28,11 +28,11 @@ import (
 	"time"
 
 	"cloud.google.com/go/cloudsqlconn"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
-	"cloud.google.com/go/cloudsqlconn/postgres/pgxv4"
+	"cloud.google.com/go/cloudsqlconn/postgres/pgxv5"
 )
 
 var (
@@ -162,7 +162,7 @@ func TestPostgresHook(t *testing.T) {
 		}
 		t.Log(now)
 	}
-	pgxv4.RegisterDriver("cloudsql-postgres")
+	pgxv5.RegisterDriver("cloudsql-postgres")
 	db, err := sql.Open(
 		"cloudsql-postgres",
 		fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
@@ -174,7 +174,7 @@ func TestPostgresHook(t *testing.T) {
 	defer db.Close()
 	testConn(db)
 
-	pgxv4.RegisterDriver("cloudsql-postgres-iam", cloudsqlconn.WithIAMAuthN())
+	pgxv5.RegisterDriver("cloudsql-postgres-iam", cloudsqlconn.WithIAMAuthN())
 	db2, err := sql.Open(
 		"cloudsql-postgres-iam",
 		fmt.Sprintf("host=%s user=%s dbname=%s sslmode=disable",

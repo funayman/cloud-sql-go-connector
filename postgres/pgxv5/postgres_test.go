@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pgxv4_test
+package pgxv5_test
 
 import (
 	"database/sql"
@@ -20,14 +20,14 @@ import (
 	"time"
 
 	"cloud.google.com/go/cloudsqlconn"
-	"cloud.google.com/go/cloudsqlconn/postgres/pgxv4"
+	"cloud.google.com/go/cloudsqlconn/postgres/pgxv5"
 )
 
 // Example shows how to use cloudsqlpostgres dialer
 func ExamplePostgresConnection() {
 	// Note that sslmode=disable is required it does not mean that the connection
 	// is unencrypted. All connections via the proxy are completely encrypted.
-	pgxv4.RegisterDriver("cloudsql-postgres", cloudsqlconn.WithIAMAuthN())
+	pgxv5.RegisterDriver("cloudsql-postgres", cloudsqlconn.WithIAMAuthN())
 	db, err := sql.Open(
 		"cloudsql-postgres",
 		"host=project:region:instance user=postgres dbname=postgres password=password sslmode=disable",

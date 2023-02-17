@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package pgxv4 provides a Cloud SQL Postgres driver that uses pgx v4 and works
+// Package pgxv5 provides a Cloud SQL Postgres driver that uses pgx v4 and works
 // with the database/sql package.
-package pgxv4
+package pgxv5
 
 import (
 	"context"
@@ -24,8 +24,8 @@ import (
 	"sync"
 
 	"cloud.google.com/go/cloudsqlconn"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/stdlib"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 )
 
 // RegisterDriver registers a Postgres driver that uses the cloudsqlconn.Dialer

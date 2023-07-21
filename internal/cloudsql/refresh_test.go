@@ -1,11 +1,11 @@
 // Copyright 2020 Google LLC
-
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-
+//
 //     https://www.apache.org/licenses/LICENSE-2.0
-
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -35,16 +35,18 @@ const testDialerID = "some-dialer-id"
 func TestRefresh(t *testing.T) {
 	wantPublicIP := "127.0.0.1"
 	wantPrivateIP := "10.0.0.1"
+	wantPSC := "abcde.12345.us-central1.sql.goog"
 	wantExpiry := time.Now().Add(time.Hour).UTC().Round(time.Second)
 	wantConnName := "my-project:my-region:my-instance"
-	cn, err := parseConnName(wantConnName)
+	cn, err := ParseConnName(wantConnName)
 	if err != nil {
-		t.Fatalf("parseConnName(%s)failed : %v", cn, err)
+		t.Fatalf("ParseConnName(%s)failed : %v", cn, err)
 	}
 	inst := mock.NewFakeCSQLInstance(
 		"my-project", "my-region", "my-instance",
 		mock.WithPublicIP(wantPublicIP),
 		mock.WithPrivateIP(wantPrivateIP),
+		mock.WithPSC(wantPSC),
 		mock.WithCertExpiry(wantExpiry),
 	)
 	client, cleanup, err := mock.NewSQLAdminService(
@@ -62,35 +64,42 @@ func TestRefresh(t *testing.T) {
 	}()
 
 	r := newRefresher(client, nil, testDialerID)
-	md, tlsCfg, gotExpiry, err := r.performRefresh(context.Background(), cn, RSAKey, false)
+	rr, err := r.performRefresh(context.Background(), cn, RSAKey, false)
 	if err != nil {
 		t.Fatalf("PerformRefresh unexpectedly failed with error: %v", err)
 	}
 
-	gotIP, ok := md.ipAddrs[PublicIP]
+	gotIP, ok := rr.ipAddrs[PublicIP]
 	if !ok {
-		t.Fatalf("metadata IP addresses did not include public address")
+		t.Fatal("metadata IP addresses did not include public address")
 	}
 	if wantPublicIP != gotIP {
 		t.Fatalf("metadata IP mismatch, want = %v, got = %v", wantPublicIP, gotIP)
 	}
-	gotIP, ok = md.ipAddrs[PrivateIP]
+	gotIP, ok = rr.ipAddrs[PrivateIP]
 	if !ok {
-		t.Fatalf("metadata IP addresses did not include private address")
+		t.Fatal("metadata IP addresses did not include private address")
 	}
 	if wantPrivateIP != gotIP {
 		t.Fatalf("metadata IP mismatch, want = %v, got = %v", wantPrivateIP, gotIP)
 	}
-	if wantExpiry != gotExpiry {
-		t.Fatalf("expiry mismatch, want = %v, got = %v", wantExpiry, gotExpiry)
+	gotPSC, ok := rr.ipAddrs[PSC]
+	if !ok {
+		t.Fatal("metadata IP addresses did not include PSC endpoint")
 	}
-	if wantConnName != tlsCfg.ServerName {
-		t.Fatalf("server name mismatch, want = %v, got = %v", wantConnName, tlsCfg.ServerName)
+	if wantPSC != gotPSC {
+		t.Fatalf("metadata IP mismatch, want = %v. got = %v", wantPSC, gotPSC)
+	}
+	if wantExpiry != rr.expiry {
+		t.Fatalf("expiry mismatch, want = %v, got = %v", wantExpiry, rr.expiry)
+	}
+	if wantConnName != rr.conf.ServerName {
+		t.Fatalf("server name mismatch, want = %v, got = %v", wantConnName, rr.conf.ServerName)
 	}
 }
 
 func TestRefreshFailsFast(t *testing.T) {
-	cn, _ := parseConnName("my-project:my-region:my-instance")
+	cn, _ := ParseConnName("my-project:my-region:my-instance")
 	inst := mock.NewFakeCSQLInstance("my-project", "my-region", "my-instance")
 	client, cleanup, err := mock.NewSQLAdminService(
 		context.Background(),
@@ -103,7 +112,7 @@ func TestRefreshFailsFast(t *testing.T) {
 	defer cleanup()
 
 	r := newRefresher(client, nil, testDialerID)
-	_, _, _, err = r.performRefresh(context.Background(), cn, RSAKey, false)
+	_, err = r.performRefresh(context.Background(), cn, RSAKey, false)
 	if err != nil {
 		t.Fatalf("expected no error, got = %v", err)
 	}
@@ -111,7 +120,7 @@ func TestRefreshFailsFast(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	// context is canceled
-	_, _, _, err = r.performRefresh(ctx, cn, RSAKey, false)
+	_, err = r.performRefresh(ctx, cn, RSAKey, false)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context.Canceled error, got = %v", err)
 	}
@@ -168,7 +177,7 @@ func TestRefreshAdjustsCertExpiry(t *testing.T) {
 			wantExpiry: certExpiry,
 		},
 	}
-	cn, _ := parseConnName("my-project:my-region:my-instance")
+	cn, _ := ParseConnName("my-project:my-region:my-instance")
 	inst := mock.NewFakeCSQLInstance("my-project", "my-region", "my-instance",
 		mock.WithCertExpiry(certExpiry))
 	client, cleanup, err := mock.NewSQLAdminService(
@@ -185,12 +194,12 @@ func TestRefreshAdjustsCertExpiry(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			ts := &fakeTokenSource{responses: tc.resps}
 			r := newRefresher(client, ts, testDialerID)
-			_, _, gotExpiry, err := r.performRefresh(context.Background(), cn, RSAKey, true)
+			rr, err := r.performRefresh(context.Background(), cn, RSAKey, true)
 			if err != nil {
 				t.Fatalf("want no error, got = %v", err)
 			}
-			if tc.wantExpiry != gotExpiry {
-				t.Fatalf("want = %v, got = %v", tc.wantExpiry, gotExpiry)
+			if tc.wantExpiry != rr.expiry {
+				t.Fatalf("want = %v, got = %v", tc.wantExpiry, rr.expiry)
 			}
 		})
 	}
@@ -216,11 +225,11 @@ func TestRefreshWithIAMAuthErrors(t *testing.T) {
 			wantCount: 2,
 		},
 	}
-	cn, _ := parseConnName("my-project:my-region:my-instance")
+	cn, _ := ParseConnName("my-project:my-region:my-instance")
 	inst := mock.NewFakeCSQLInstance("my-project", "my-region", "my-instance")
 	client, cleanup, err := mock.NewSQLAdminService(
 		context.Background(),
-		mock.InstanceGetSuccess(inst, 1),
+		mock.InstanceGetSuccess(inst, 2),
 	)
 	if err != nil {
 		t.Fatalf("failed to create test SQL admin service: %s", err)
@@ -231,7 +240,7 @@ func TestRefreshWithIAMAuthErrors(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			ts := &fakeTokenSource{responses: tc.resps}
 			r := newRefresher(client, ts, testDialerID)
-			_, _, _, err = r.performRefresh(context.Background(), cn, RSAKey, true)
+			_, err := r.performRefresh(context.Background(), cn, RSAKey, true)
 			if err == nil {
 				t.Fatalf("expected get failed error, got = %v", err)
 			}
@@ -243,7 +252,7 @@ func TestRefreshWithIAMAuthErrors(t *testing.T) {
 }
 
 func TestRefreshMetadataConfigError(t *testing.T) {
-	cn, _ := parseConnName("my-project:my-region:my-instance")
+	cn, _ := ParseConnName("my-project:my-region:my-instance")
 
 	testCases := []struct {
 		req     *mock.Request
@@ -259,6 +268,13 @@ func TestRefreshMetadataConfigError(t *testing.T) {
 				), 1),
 			wantErr: &errtype.ConfigError{},
 			desc:    "When the instance isn't Second generation",
+		},
+		{
+			req: mock.InstanceGetSuccess(
+				mock.NewFakeCSQLInstance(cn.project, cn.region, cn.name,
+					mock.WithRegion("some-other-region")), 1),
+			wantErr: &errtype.ConfigError{},
+			desc:    "When the region does not match",
 		},
 		{
 			req: mock.InstanceGetSuccess(
@@ -284,7 +300,7 @@ func TestRefreshMetadataConfigError(t *testing.T) {
 			defer cleanup()
 
 			r := newRefresher(client, nil, testDialerID)
-			_, _, _, err = r.performRefresh(context.Background(), cn, RSAKey, false)
+			_, err = r.performRefresh(context.Background(), cn, RSAKey, false)
 			if !errors.As(err, &tc.wantErr) {
 				t.Errorf("[%v] PerformRefresh failed with unexpected error, want = %T, got = %v", i, tc.wantErr, err)
 			}
@@ -293,7 +309,7 @@ func TestRefreshMetadataConfigError(t *testing.T) {
 }
 
 func TestRefreshMetadataRefreshError(t *testing.T) {
-	cn, _ := parseConnName("my-project:my-region:my-instance")
+	cn, _ := ParseConnName("my-project:my-region:my-instance")
 
 	testCases := []struct {
 		req     *mock.Request
@@ -305,13 +321,6 @@ func TestRefreshMetadataRefreshError(t *testing.T) {
 				mock.NewFakeCSQLInstance(cn.project, cn.region, cn.name), 1),
 			wantErr: &errtype.RefreshError{},
 			desc:    "When the Metadata call fails",
-		},
-		{
-			req: mock.InstanceGetSuccess(
-				mock.NewFakeCSQLInstance(cn.project, cn.region, cn.name,
-					mock.WithRegion("some-other-region")), 1),
-			wantErr: &errtype.RefreshError{},
-			desc:    "When the region does not match",
 		},
 		{
 			req: mock.InstanceGetSuccess(
@@ -356,7 +365,7 @@ func TestRefreshMetadataRefreshError(t *testing.T) {
 			defer cleanup()
 
 			r := newRefresher(client, nil, testDialerID)
-			_, _, _, err = r.performRefresh(context.Background(), cn, RSAKey, false)
+			_, err = r.performRefresh(context.Background(), cn, RSAKey, false)
 			if !errors.As(err, &tc.wantErr) {
 				t.Errorf("[%v] PerformRefresh failed with unexpected error, want = %T, got = %v", i, tc.wantErr, err)
 			}
@@ -365,7 +374,7 @@ func TestRefreshMetadataRefreshError(t *testing.T) {
 }
 
 func TestRefreshWithFailedEphemeralCertCall(t *testing.T) {
-	cn, _ := parseConnName("my-project:my-region:my-instance")
+	cn, _ := ParseConnName("my-project:my-region:my-instance")
 	inst := mock.NewFakeCSQLInstance(cn.project, cn.region, cn.name)
 
 	testCases := []struct {
@@ -421,7 +430,7 @@ func TestRefreshWithFailedEphemeralCertCall(t *testing.T) {
 		defer cleanup()
 
 		r := newRefresher(client, nil, testDialerID)
-		_, _, _, err = r.performRefresh(context.Background(), cn, RSAKey, false)
+		_, err = r.performRefresh(context.Background(), cn, RSAKey, false)
 
 		if !errors.As(err, &tc.wantErr) {
 			t.Errorf("[%v] PerformRefresh failed with unexpected error, want = %T, got = %v", i, tc.wantErr, err)
@@ -431,7 +440,7 @@ func TestRefreshWithFailedEphemeralCertCall(t *testing.T) {
 
 func TestRefreshBuildsTLSConfig(t *testing.T) {
 	wantServerName := "my-project:my-region:my-instance"
-	cn, _ := parseConnName(wantServerName)
+	cn, _ := ParseConnName(wantServerName)
 	inst := mock.NewFakeCSQLInstance(cn.project, cn.region, cn.name)
 	certBytes, err := mock.SelfSign(inst.Cert, inst.Key)
 	if err != nil {
@@ -448,39 +457,39 @@ func TestRefreshBuildsTLSConfig(t *testing.T) {
 	defer cleanup()
 
 	r := newRefresher(client, nil, testDialerID)
-	_, tlsCfg, _, err := r.performRefresh(context.Background(), cn, RSAKey, false)
+	rr, err := r.performRefresh(context.Background(), cn, RSAKey, false)
 	if err != nil {
 		t.Fatalf("expected no error, got = %v", err)
 	}
 
-	if wantServerName != tlsCfg.ServerName {
+	if wantServerName != rr.conf.ServerName {
 		t.Fatalf(
 			"TLS config has incorrect server name, want = %v, got = %v",
-			wantServerName, tlsCfg.ServerName,
+			wantServerName, rr.conf.ServerName,
 		)
 	}
 
 	wantCertLen := 1
-	if wantCertLen != len(tlsCfg.Certificates) {
+	if wantCertLen != len(rr.conf.Certificates) {
 		t.Fatalf(
 			"TLS config has unexpected number of certificates, want = %v, got = %v",
-			wantCertLen, len(tlsCfg.Certificates),
+			wantCertLen, len(rr.conf.Certificates),
 		)
 	}
 
 	wantInsecure := true
-	if wantInsecure != tlsCfg.InsecureSkipVerify {
+	if wantInsecure != rr.conf.InsecureSkipVerify {
 		t.Fatalf(
 			"TLS config should skip verification, want = %v, got = %v",
-			wantInsecure, tlsCfg.InsecureSkipVerify,
+			wantInsecure, rr.conf.InsecureSkipVerify,
 		)
 	}
 
-	if tlsCfg.RootCAs == nil {
+	if rr.conf.RootCAs == nil {
 		t.Fatal("TLS config should include RootCA, got nil")
 	}
 
-	verifyPeerCert := tlsCfg.VerifyPeerCertificate
+	verifyPeerCert := rr.conf.VerifyPeerCertificate
 	b, _ := pem.Decode(certBytes)
 	err = verifyPeerCert([][]byte{b.Bytes}, nil)
 	if err != nil {

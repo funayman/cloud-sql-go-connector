@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	// the refresh buffer is the amount of time before a refresh's result
-	// expires that a new refresh operation begins.
+	// the refresh buffer is the amount of time before a refresh operation's
+	// certificate expires that a new refresh operation begins.
 	refreshBuffer = 4 * time.Minute
 
 	// refreshInterval is the amount of time between refresh attempts as
@@ -54,20 +54,20 @@ var (
 	connNameRegex = regexp.MustCompile("([^:]+(:[^:]+)?):([^:]+):([^:]+)")
 )
 
-// connName represents the "instance connection name", in the format
+// ConnName represents the "instance connection name", in the format
 // "project:region:name".
-type connName struct {
+type ConnName struct {
 	project string
 	region  string
 	name    string
 }
 
-func (c *connName) String() string {
+func (c *ConnName) String() string {
 	return fmt.Sprintf("%s:%s:%s", c.project, c.region, c.name)
 }
 
-// parseConnName initializes a new connName struct.
-func parseConnName(cn string) (connName, error) {
+// ParseConnName initializes a new ConnName struct.
+func ParseConnName(cn string) (ConnName, error) {
 	b := []byte(cn)
 	m := connNameRegex.FindSubmatch(b)
 	if m == nil {
@@ -75,10 +75,10 @@ func parseConnName(cn string) (connName, error) {
 			"invalid instance connection name, expected PROJECT:REGION:INSTANCE",
 			cn,
 		)
-		return connName{}, err
+		return ConnName{}, err
 	}
 
-	c := connName{
+	c := ConnName{
 		project: string(m[1]),
 		region:  string(m[3]),
 		name:    string(m[4]),
@@ -94,10 +94,8 @@ type refreshOperation struct {
 	ready chan struct{}
 	// timer that triggers refresh, can be used to cancel.
 	timer  *time.Timer
+	result refreshResult
 	err    error
-	expiry time.Time
-	tlsCfg *tls.Config
-	md     metadata
 }
 
 // cancel prevents the instanceInfo from starting, if it hasn't already
@@ -110,19 +108,19 @@ func (r *refreshOperation) cancel() bool {
 // isValid returns true if this result is complete, successful, and is still
 // valid.
 func (r *refreshOperation) isValid() bool {
-	// verify the result has finished running
+	// verify the refreshOperation has finished running
 	select {
 	default:
 		return false
 	case <-r.ready:
-		if r.err != nil || time.Now().After(r.expiry.Round(0)) {
+		if r.err != nil || time.Now().After(r.result.expiry.Round(0)) {
 			return false
 		}
 		return true
 	}
 }
 
-// RefreshCfg is a of attributes that trigger new refresh operations.
+// RefreshCfg is a collection of attributes that trigger new refresh operations.
 type RefreshCfg struct {
 	UseIAMAuthN bool
 }
@@ -135,7 +133,7 @@ type Instance struct {
 	// OpenConns is the number of open connections to the instance.
 	OpenConns uint64
 
-	connName
+	ConnName
 	key *rsa.PrivateKey
 
 	// refreshTimeout sets the maximum duration a refresh cycle can run
@@ -145,7 +143,7 @@ type Instance struct {
 	l *rate.Limiter
 	r refresher
 
-	resultGuard sync.RWMutex
+	refreshLock sync.RWMutex
 	RefreshCfg  RefreshCfg
 	// cur represents the current refreshOperation that will be used to
 	// create connections. If a valid complete refreshOperation isn't
@@ -163,21 +161,17 @@ type Instance struct {
 
 // NewInstance initializes a new Instance given an instance connection name
 func NewInstance(
-	instance string,
+	cn ConnName,
 	client *sqladmin.Service,
 	key *rsa.PrivateKey,
 	refreshTimeout time.Duration,
 	ts oauth2.TokenSource,
 	dialerID string,
 	r RefreshCfg,
-) (*Instance, error) {
-	cn, err := parseConnName(instance)
-	if err != nil {
-		return nil, err
-	}
+) *Instance {
 	ctx, cancel := context.WithCancel(context.Background())
 	i := &Instance{
-		connName: cn,
+		ConnName: cn,
 		key:      key,
 		l:        rate.NewLimiter(rate.Every(refreshInterval), refreshBurst),
 		r: newRefresher(
@@ -192,11 +186,11 @@ func NewInstance(
 	}
 	// For the initial refresh operation, set cur = next so that connection
 	// requests block until the first refresh is complete.
-	i.resultGuard.Lock()
+	i.refreshLock.Lock()
 	i.cur = i.scheduleRefresh(0)
 	i.next = i.cur
-	i.resultGuard.Unlock()
-	return i, nil
+	i.refreshLock.Unlock()
+	return i
 }
 
 // Close closes the instance; it stops the refresh cycle and prevents it from
@@ -209,7 +203,7 @@ func (i *Instance) Close() {
 // private) and a TLS config that can be used to connect to a Cloud SQL
 // instance.
 func (i *Instance) ConnectInfo(ctx context.Context, ipType string) (string, *tls.Config, error) {
-	res, err := i.result(ctx)
+	op, err := i.refreshOperation(ctx)
 	if err != nil {
 		return "", nil, err
 	}
@@ -220,13 +214,13 @@ func (i *Instance) ConnectInfo(ctx context.Context, ipType string) (string, *tls
 	switch ipType {
 	case AutoIP:
 		// Try Public first
-		addr, ok = res.md.ipAddrs[PublicIP]
+		addr, ok = op.result.ipAddrs[PublicIP]
 		if !ok {
 			// Try Private second
-			addr, ok = res.md.ipAddrs[PrivateIP]
+			addr, ok = op.result.ipAddrs[PrivateIP]
 		}
 	default:
-		addr, ok = res.md.ipAddrs[ipType]
+		addr, ok = op.result.ipAddrs[ipType]
 	}
 	if !ok {
 		err := errtype.NewConfigError(
@@ -235,31 +229,31 @@ func (i *Instance) ConnectInfo(ctx context.Context, ipType string) (string, *tls
 		)
 		return "", nil, err
 	}
-	return addr, res.tlsCfg, nil
+	return addr, op.result.conf, nil
 }
 
 // InstanceEngineVersion returns the engine type and version for the instance.
-// The value coresponds to one of the following types for the instance:
+// The value corresponds to one of the following types for the instance:
 // https://cloud.google.com/sql/docs/mysql/admin-api/rest/v1beta4/SqlDatabaseVersion
 func (i *Instance) InstanceEngineVersion(ctx context.Context) (string, error) {
-	res, err := i.result(ctx)
+	op, err := i.refreshOperation(ctx)
 	if err != nil {
 		return "", err
 	}
-	return res.md.version, nil
+	return op.result.version, nil
 }
 
 // UpdateRefresh cancels all existing refresh attempts and schedules new
 // attempts with the provided config.
 func (i *Instance) UpdateRefresh(cfg RefreshCfg) {
-	i.resultGuard.Lock()
-	defer i.resultGuard.Unlock()
+	i.refreshLock.Lock()
+	defer i.refreshLock.Unlock()
 	// Cancel any pending refreshes
 	i.cur.cancel()
 	i.next.cancel()
-	// update the refreshcfg as needed
+	// update the refresh config as needed
 	i.RefreshCfg = cfg
-	// reschedule a new refresh immiediately
+	// reschedule a new refresh immediately
 	i.cur = i.scheduleRefresh(0)
 	i.next = i.cur
 }
@@ -267,34 +261,34 @@ func (i *Instance) UpdateRefresh(cfg RefreshCfg) {
 // ForceRefresh triggers an immediate refresh operation to be scheduled and
 // used for future connection attempts.
 func (i *Instance) ForceRefresh() {
-	i.resultGuard.Lock()
-	defer i.resultGuard.Unlock()
+	i.refreshLock.Lock()
+	defer i.refreshLock.Unlock()
 	// If the next refresh hasn't started yet, we can cancel it and start
 	// an immediate one
 	if i.next.cancel() {
 		i.next = i.scheduleRefresh(0)
 	}
-	// block all sequential connection attempts on the next refresh result
+	// block all sequential connection attempts on the next refresh operation
 	i.cur = i.next
 }
 
-// result returns the most recent refresh result (waiting for it to complete if
-// necessary)
-func (i *Instance) result(ctx context.Context) (*refreshOperation, error) {
-	i.resultGuard.RLock()
-	res := i.cur
-	i.resultGuard.RUnlock()
+// refreshOperation returns the most recent refresh operation
+// waiting for it to complete if necessary
+func (i *Instance) refreshOperation(ctx context.Context) (*refreshOperation, error) {
+	i.refreshLock.RLock()
+	cur := i.cur
+	i.refreshLock.RUnlock()
 	var err error
 	select {
-	case <-res.ready:
-		err = res.err
+	case <-cur.ready:
+		err = cur.err
 	case <-ctx.Done():
 		err = ctx.Err()
 	}
 	if err != nil {
 		return nil, err
 	}
-	return res, nil
+	return cur, nil
 }
 
 // refreshDuration returns the duration to wait before starting the next
@@ -316,7 +310,7 @@ func refreshDuration(now, certExpiry time.Time) time.Duration {
 
 // scheduleRefresh schedules a refresh operation to be triggered after a given
 // duration. The returned refreshOperation can be used to either Cancel or Wait
-// for the operation's result.
+// for the operation's completion.
 func (i *Instance) scheduleRefresh(d time.Duration) *refreshOperation {
 	r := &refreshOperation{}
 	r.ready = make(chan struct{})
@@ -330,12 +324,12 @@ func (i *Instance) scheduleRefresh(d time.Duration) *refreshOperation {
 		if err != nil {
 			r.err = errtype.NewDialError(
 				"context was canceled or expired before refresh completed",
-				i.connName.String(),
+				i.ConnName.String(),
 				nil,
 			)
 		} else {
-			r.md, r.tlsCfg, r.expiry, r.err = i.r.performRefresh(
-				ctx, i.connName, i.key, i.RefreshCfg.UseIAMAuthN)
+			r.result, r.err = i.r.performRefresh(
+				ctx, i.ConnName, i.key, i.RefreshCfg.UseIAMAuthN)
 		}
 
 		close(r.ready)
@@ -348,18 +342,18 @@ func (i *Instance) scheduleRefresh(d time.Duration) *refreshOperation {
 		}
 
 		// Once the refresh is complete, update "current" with working
-		// result and schedule a new refresh
-		i.resultGuard.Lock()
-		defer i.resultGuard.Unlock()
+		// refreshOperation and schedule a new refresh
+		i.refreshLock.Lock()
+		defer i.refreshLock.Unlock()
 
 		// if failed, scheduled the next refresh immediately
 		if r.err != nil {
 			i.next = i.scheduleRefresh(0)
-			// If the latest result is bad, avoid replacing the
-			// used result while it's still valid and potentially
+			// If the latest refreshOperation is bad, avoid replacing the
+			// used refreshOperation while it's still valid and potentially
 			// able to provide successful connections. TODO: This
-			// means that errors while the current result is still
-			// valid are surpressed. We should try to surface
+			// means that errors while the current refreshOperation is still
+			// valid are suppressed. We should try to surface
 			// errors in a more meaningful way.
 			if !i.cur.isValid() {
 				i.cur = r
@@ -370,7 +364,7 @@ func (i *Instance) scheduleRefresh(d time.Duration) *refreshOperation {
 		// Update the current results, and schedule the next refresh in
 		// the future
 		i.cur = r
-		t := refreshDuration(time.Now(), i.cur.expiry)
+		t := refreshDuration(time.Now(), i.cur.result.expiry)
 		i.next = i.scheduleRefresh(t)
 	})
 	return r
@@ -378,5 +372,5 @@ func (i *Instance) scheduleRefresh(d time.Duration) *refreshOperation {
 
 // String returns the instance's connection name.
 func (i *Instance) String() string {
-	return i.connName.String()
+	return i.ConnName.String()
 }

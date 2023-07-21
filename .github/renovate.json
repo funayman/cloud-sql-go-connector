@@ -1,23 +1,12 @@
 {
   "extends": [
-    "config:base",
-    ":semanticCommitTypeAll(chore)"
+    "config:base"
   ],
-  "ignorePresets": [":semanticPrefixFixDepsChoreOthers"],
-  "prConcurrentLimit": 0,
-  "rebaseStalePrs": true,
-  "dependencyDashboard": true,
-  "semanticCommits": true,
+  "commitMessagePrefix": "deps: ",
   "postUpdateOptions": [
     "gomodTidy"
   ],
-  "ignoreDeps": [
-    "golang.org/x/net"
-  ],
-  "packageRules": [
-     {
-       "matchPackagePatterns": [".*"],
-       "addLabels": ["automerge"]
-     }
+  "schedule": [
+    "before 4am on the first day of the month"
   ]
 }

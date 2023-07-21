@@ -18,15 +18,21 @@ on:
   pull_request_target:
     types: [labeled]
 
+# Declare default permissions as read only.
+permissions: read-all
+
 jobs:
   build:
     if: "${{ github.event.action != 'labeled' || github.event.label.name == 'tests: run' }}"
     name: Run lint
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
     steps:
       - name: Remove PR Label
         if: "${{ github.event.action == 'labeled' && github.event.label.name == 'tests: run' }}"
-        uses: actions/github-script@v6
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6.4.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -41,11 +47,11 @@ jobs:
               console.log('Failed to remove label. Another job may have already removed it!');
             }
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
         with:
           go-version: "1.20"
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
@@ -53,7 +59,7 @@ jobs:
         run: |
           go mod tidy && git diff --exit-code
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@5f1fec7010f6ae3b84ea4f7b2129beb8639b564f # v3.5.0
         with:
           version: latest
           args: --timeout 3m

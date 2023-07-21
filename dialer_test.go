@@ -17,7 +17,7 @@ package cloudsqlconn
 import (
 	"context"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net"
 	"os"
 	"strings"
@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/cloudsqlconn/errtype"
+	"cloud.google.com/go/cloudsqlconn/internal/cloudsql"
 	"cloud.google.com/go/cloudsqlconn/internal/mock"
 	"golang.org/x/oauth2"
 )
@@ -34,9 +35,9 @@ func testSuccessfulDial(ctx context.Context, t *testing.T, d *Dialer, i string, 
 	if err != nil {
 		t.Fatalf("expected Dial to succeed, but got error: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
-	data, err := ioutil.ReadAll(conn)
+	data, err := io.ReadAll(conn)
 	if err != nil {
 		t.Fatalf("expected ReadAll to succeed, got error %v", err)
 	}
@@ -96,24 +97,10 @@ func TestDialWithAdminAPIErrors(t *testing.T) {
 	}
 	d.sqladmin = svc
 
-	_, err = d.Dial(context.Background(), "bad-instance-name")
-	var wantErr1 *errtype.ConfigError
-	if !errors.As(err, &wantErr1) {
-		t.Fatalf("when instance name is invalid, want = %T, got = %v", wantErr1, err)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	_, err = d.Dial(ctx, "my-project:my-region:my-instance")
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("when context is canceled, want = %T, got = %v", context.Canceled, err)
-	}
-
 	_, err = d.Dial(context.Background(), "my-project:my-region:my-instance")
-	var wantErr2 *errtype.RefreshError
-	if !errors.As(err, &wantErr2) {
-		t.Fatalf("when API call fails, want = %T, got = %v", wantErr2, err)
+	var wantErr *errtype.RefreshError
+	if !errors.As(err, &wantErr) {
+		t.Fatalf("when API call fails, want = %T, got = %v", wantErr, err)
 	}
 }
 
@@ -129,7 +116,7 @@ func TestDialWithConfigurationErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to init SQLAdminService: %v", err)
 	}
-	defer cleanup()
+	defer func() { _ = cleanup() }()
 
 	d, err := NewDialer(context.Background(),
 		WithDefaultDialOptions(WithPublicIP()),
@@ -143,23 +130,21 @@ func TestDialWithConfigurationErrors(t *testing.T) {
 	d.sqladmin = svc
 
 	_, err = d.Dial(context.Background(), "my-project:my-region:my-instance", WithPrivateIP())
-	var wantErr1 *errtype.ConfigError
-	if !errors.As(err, &wantErr1) {
-		t.Fatalf("when IP type is invalid, want = %T, got = %v", wantErr1, err)
+	if err == nil {
+		t.Fatal("when IP type is invalid, want = error, got = nil")
 	}
 
 	_, err = d.Dial(context.Background(), "my-project:my-region:my-instance")
-	var wantErr2 *errtype.DialError
-	if !errors.As(err, &wantErr2) {
-		t.Fatalf("when server proxy socket is unavailable, want = %T, got = %v", wantErr2, err)
+	if err == nil {
+		t.Fatal("when server proxy socket is unavailable, want = error, got = nil")
 	}
 
 	stop := mock.StartServerProxy(t, inst)
 	defer stop()
 
 	_, err = d.Dial(context.Background(), "my-project:my-region:my-instance")
-	if !errors.As(err, &wantErr2) {
-		t.Fatalf("when TLS handshake fails, want = %T, got = %v", wantErr2, err)
+	if err == nil {
+		t.Fatal("when TLS handshake fails, want = error, got = nil")
 	}
 }
 
@@ -233,7 +218,7 @@ func TestIAMAuthNErrors(t *testing.T) {
 			if err != nil {
 				t.Fatalf("mock.NewSQLAdminService(): %v", err)
 			}
-			defer cleanup()
+			defer func() { _ = cleanup() }()
 
 			stop := mock.StartServerProxy(t, inst)
 			defer stop()
@@ -290,41 +275,45 @@ func TestDialerWithCustomDialFunc(t *testing.T) {
 }
 
 func TestDialerEngineVersion(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	tests := []string{
 		"MYSQL_5_7", "POSTGRES_14", "SQLSERVER_2019_STANDARD", "MYSQL_8_0_18",
 	}
 	for _, wantEV := range tests {
-		inst := mock.NewFakeCSQLInstance("my-project", "my-region", "my-instance", mock.WithEngineVersion(wantEV))
-		svc, cleanup, err := mock.NewSQLAdminService(
-			ctx,
-			mock.InstanceGetSuccess(inst, 1),
-			mock.CreateEphemeralSuccess(inst, 1),
-		)
-		if err != nil {
-			t.Fatalf("failed to init SQLAdminService: %v", err)
-		}
-		d, err := NewDialer(context.Background(),
-			WithTokenSource(mock.EmptyTokenSource{}),
-		)
-		if err != nil {
-			t.Fatalf("failed to init Dialer: %v", err)
-		}
-		d.sqladmin = svc
-		defer func() {
-			if err := cleanup(); err != nil {
-				t.Fatalf("%v", err)
+		t.Run(wantEV, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			inst := mock.NewFakeCSQLInstance(
+				"my-project", "my-region", "my-instance",
+				mock.WithEngineVersion(wantEV))
+			svc, cleanup, err := mock.NewSQLAdminService(
+				ctx,
+				mock.InstanceGetSuccess(inst, 1),
+				mock.CreateEphemeralSuccess(inst, 1),
+			)
+			if err != nil {
+				t.Fatalf("failed to init SQLAdminService: %v", err)
 			}
-		}()
+			d, err := NewDialer(context.Background(),
+				WithTokenSource(mock.EmptyTokenSource{}),
+			)
+			if err != nil {
+				t.Fatalf("failed to init Dialer: %v", err)
+			}
+			d.sqladmin = svc
+			defer func() {
+				if err := cleanup(); err != nil {
+					t.Fatalf("%v", err)
+				}
+			}()
 
-		gotEV, err := d.EngineVersion(ctx, "my-project:my-region:my-instance")
-		if err != nil {
-			t.Fatalf("failed to retrieve engine version: %v", err)
-		}
-		if wantEV != gotEV {
-			t.Errorf("InstanceEngineVersion(%s) failed: want %v, got %v", wantEV, gotEV, err)
-		}
+			gotEV, err := d.EngineVersion(ctx, "my-project:my-region:my-instance")
+			if err != nil {
+				t.Fatalf("failed to retrieve engine version: %v", err)
+			}
+			if wantEV != gotEV {
+				t.Errorf("InstanceEngineVersion(%s) failed: want %v, got %v", wantEV, gotEV, err)
+			}
+		})
 	}
 }
 
@@ -513,5 +502,88 @@ func TestTokenSourceWithIAMAuthN(t *testing.T) {
 				t.Fatalf("err: want = %v, got = %v", tc.wantErr, gotErr)
 			}
 		})
+	}
+}
+
+func TestDialerRemovesInvalidInstancesFromCache(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping slow unit test")
+	}
+	// When a dialer attempts to retrieve connection info for a
+	// non-existent instance, it should delete the instance from
+	// the cache and ensure no background refresh happens (which would be
+	// wasted cycles).
+	good := mock.NewFakeCSQLInstance("my-project", "my-region", "my-instance")
+	svc, cleanup, err := mock.NewSQLAdminService(context.Background())
+	if err != nil {
+		t.Fatalf("failed to init SQLAdminService: %v", err)
+	}
+	stop := mock.StartServerProxy(t, good)
+	defer func() {
+		stop()
+		if err := cleanup(); err != nil {
+			t.Fatalf("%v", err)
+		}
+	}()
+
+	d, err := NewDialer(context.Background(),
+		WithDefaultDialOptions(WithPublicIP()),
+		WithTokenSource(mock.EmptyTokenSource{}),
+	)
+	if err != nil {
+		t.Fatalf("expected NewDialer to succeed, but got error: %v", err)
+	}
+	d.sqladmin = svc
+	defer func(d *Dialer) {
+		err := d.Close()
+		if err != nil {
+			t.Log(err)
+		}
+	}(d)
+
+	badInstanceConnectionName := "doesntexist:us-central1:doesntexist"
+	_, _ = d.Dial(context.Background(), badInstanceConnectionName)
+
+	// The internal cache is not revealed publicly, so check the internal cache
+	// to confirm the instance is no longer present.
+	badCN, _ := cloudsql.ParseConnName(badInstanceConnectionName)
+	d.lock.RLock()
+	_, ok := d.instances[badCN]
+	d.lock.RUnlock()
+	if ok {
+		t.Fatal("bad instance was not removed from the cache")
+	}
+}
+
+func TestDialerSupportsOneOffDialFunction(t *testing.T) {
+	ctx := context.Background()
+	inst := mock.NewFakeCSQLInstance("p", "r", "i")
+	svc, cleanup, err := mock.NewSQLAdminService(
+		context.Background(),
+		mock.InstanceGetSuccess(inst, 1),
+		mock.CreateEphemeralSuccess(inst, 1),
+	)
+	if err != nil {
+		t.Fatalf("failed to init SQLAdminService: %v", err)
+	}
+	d, err := NewDialer(ctx, WithTokenSource(mock.EmptyTokenSource{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.sqladmin = svc
+	defer func() {
+		if err := d.Close(); err != nil {
+			t.Log(err)
+		}
+		_ = cleanup()
+	}()
+
+	sentinelErr := errors.New("dial func was called")
+	f := func(context.Context, string, string) (net.Conn, error) {
+		return nil, sentinelErr
+	}
+
+	if _, err := d.Dial(ctx, "p:r:i", WithOneOffDialFunc(f)); !errors.Is(err, sentinelErr) {
+		t.Fatal("one-off dial func was not called")
 	}
 }

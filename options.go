@@ -188,7 +188,8 @@ func WithQuotaProject(p string) Option {
 
 // WithDialFunc configures the function used to connect to the address on the
 // named network. This option is generally unnecessary except for advanced
-// use-cases.
+// use-cases. The function is used for all invocations of Dial. To configure
+// a dial function per individual calls to dial, use WithOneOffDialFunc.
 func WithDialFunc(dial func(ctx context.Context, network, addr string) (net.Conn, error)) Option {
 	return func(d *dialerConfig) {
 		d.dialFunc = dial
@@ -212,10 +213,10 @@ func WithIAMAuthN() Option {
 type DialOption func(d *dialCfg)
 
 type dialCfg struct {
-	tcpKeepAlive time.Duration
+	dialFunc     func(ctx context.Context, network, addr string) (net.Conn, error)
 	ipType       string
-
-	refreshCfg cloudsql.RefreshCfg
+	tcpKeepAlive time.Duration
+	refreshCfg   cloudsql.RefreshCfg
 }
 
 // DialOptions turns a list of DialOption instances into an DialOption.
@@ -224,6 +225,15 @@ func DialOptions(opts ...DialOption) DialOption {
 		for _, opt := range opts {
 			opt(cfg)
 		}
+	}
+}
+
+// WithOneOffDialFunc configures the dial function on a one-off basis for an
+// individual call to Dial. To configure a dial function across all invocations
+// of Dial, use WithDialFunc.
+func WithOneOffDialFunc(dial func(ctx context.Context, network, addr string) (net.Conn, error)) DialOption {
+	return func(c *dialCfg) {
+		c.dialFunc = dial
 	}
 }
 
@@ -248,6 +258,13 @@ func WithPrivateIP() DialOption {
 	}
 }
 
+// WithPSC returns a DialOption that specifies a PSC endpoint will be used to connect.
+func WithPSC() DialOption {
+	return func(cfg *dialCfg) {
+		cfg.ipType = cloudsql.PSC
+	}
+}
+
 // WithAutoIP returns a DialOption that selects the public IP if available and
 // otherwise falls back to private IP. This option is present for backwards
 // compatibility only and is not recommended for use in production.
@@ -258,8 +275,8 @@ func WithAutoIP() DialOption {
 }
 
 // WithDialIAMAuthN allows you to enable or disable IAM Authentication for this
-// instance as descibed in the documentation for WithIAMAuthN. This value will
-// overide the Dialer-level configuration set with WithIAMAuthN.
+// instance as described in the documentation for WithIAMAuthN. This value will
+// override the Dialer-level configuration set with WithIAMAuthN.
 //
 // WARNING: This DialOption can cause a new Refresh operation to be triggered.
 // Toggling this option on or off between Dials may cause increased API usage

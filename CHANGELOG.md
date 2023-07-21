@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.4.0](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/compare/v1.3.0...v1.4.0) (2023-07-06)
+
+
+### Features
+
+* add support for PSC connections ([#565](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/565)) ([10a46b0](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/10a46b0a36440d6b84498468346833729c21bbb4))
+
+## [1.3.0](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/compare/v1.2.4...v1.3.0) (2023-06-13)
+
+
+### Features
+
+* add support for WithOneOffDialFunc ([#558](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/558)) ([14592f3](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/14592f3d21e58fbd038cffdb6c4f67d7e3526302))
+
+
+### Bug Fixes
+
+* close background refresh for bad instances ([#550](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/550)) ([31f06fc](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/31f06fc078f097b6cef4f7c19228a724a00c3408))
+
+## [1.2.4](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/compare/v1.2.3...v1.2.4) (2023-05-09)
+
+
+### Bug Fixes
+
+* update dependencies to latest versions ([#539](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/539)) ([f1a4008](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/f1a40083289ef0051b757f7a12921cfefc65a249))
+
+## [1.2.3](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/compare/v1.2.2...v1.2.3) (2023-04-11)
+
+
+### Bug Fixes
+
+* update dependencies to latest versions ([#517](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/517)) ([55bad80](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/55bad80b3ae64b4b9c7135db2c12dd49e0ad230e))
+
+## [1.2.2](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/compare/v1.2.1...v1.2.2) (2023-03-09)
+
+
+### Bug Fixes
+
+* strip monotonic clock readings for refresh calculations ([#471](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/471)) ([94048af](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/94048afd001fd960f316e961501b871ab648296e))
+
 ## [1.2.1](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/compare/v1.2.0...v1.2.1) (2023-02-15)
 
 

@@ -31,7 +31,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// EmptyTokenSource is a oauth2.TokenSource that returns empty tokens.
+// EmptyTokenSource is an Oauth2.TokenSource that returns empty tokens.
 type EmptyTokenSource struct{}
 
 // Token provides an empty oauth2.Token.
@@ -50,6 +50,7 @@ type FakeCSQLInstance struct {
 	// ipAddrs is a map of IP type (PUBLIC or PRIVATE) to IP address.
 	ipAddrs      map[string]string
 	backendType  string
+	DNSName      string
 	signer       SignFunc
 	clientSigner ClientSignFunc
 	Key          *rsa.PrivateKey
@@ -78,6 +79,13 @@ func WithPublicIP(addr string) FakeCSQLInstanceOption {
 func WithPrivateIP(addr string) FakeCSQLInstanceOption {
 	return func(f *FakeCSQLInstance) {
 		f.ipAddrs["PRIVATE"] = addr
+	}
+}
+
+// WithPSC sets the PSC DnsName to addr.
+func WithPSC(dns string) FakeCSQLInstanceOption {
+	return func(f *FakeCSQLInstance) {
+		f.DNSName = dns
 	}
 }
 
@@ -126,7 +134,7 @@ func WithCertSigner(s SignFunc) FakeCSQLInstanceOption {
 // key. The result should be PEM-encoded.
 type ClientSignFunc = func(*x509.Certificate, *rsa.PrivateKey, *rsa.PublicKey) ([]byte, error)
 
-// WithClientCertSigner configures the signing function used to generated a
+// WithClientCertSigner configures the signing function used to generate a
 // certificate signed with the client's public key.
 func WithClientCertSigner(s ClientSignFunc) FakeCSQLInstanceOption {
 	return func(f *FakeCSQLInstance) {
@@ -155,6 +163,7 @@ func NewFakeCSQLInstance(project, region, name string, opts ...FakeCSQLInstanceO
 		region:       region,
 		name:         name,
 		ipAddrs:      map[string]string{"PUBLIC": "0.0.0.0"},
+		DNSName:      "",
 		dbVersion:    "POSTGRES_12", // default of no particular importance
 		backendType:  "SECOND_GEN",
 		signer:       SelfSign,
@@ -175,10 +184,13 @@ func SelfSign(c *x509.Certificate, k *rsa.PrivateKey) ([]byte, error) {
 		return nil, err
 	}
 	certPEM := new(bytes.Buffer)
-	pem.Encode(certPEM, &pem.Block{
+	err = pem.Encode(certPEM, &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: certBytes,
 	})
+	if err != nil {
+		return nil, err
+	}
 	return certPEM.Bytes(), nil
 }
 
@@ -269,13 +281,19 @@ func StartServerProxy(t *testing.T, i FakeCSQLInstance) func() {
 	}
 
 	caPEM := &bytes.Buffer{}
-	pem.Encode(caPEM, &pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
+	err = pem.Encode(caPEM, &pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
+	if err != nil {
+		t.Fatalf("pem.Encode: %v", err)
+	}
 
 	caKeyPEM := &bytes.Buffer{}
-	pem.Encode(caKeyPEM, &pem.Block{
+	err = pem.Encode(caKeyPEM, &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(i.Key),
 	})
+	if err != nil {
+		t.Fatalf("pem.Encode: %v", err)
+	}
 
 	serverCert, err := tls.X509KeyPair(caPEM.Bytes(), caKeyPEM.Bytes())
 	if err != nil {
@@ -298,13 +316,13 @@ func StartServerProxy(t *testing.T, i FakeCSQLInstance) func() {
 				if err != nil {
 					return
 				}
-				conn.Write([]byte(i.name))
-				conn.Close()
+				_, _ = conn.Write([]byte(i.name))
+				_ = conn.Close()
 			}
 		}
 	}()
 	return func() {
 		cancel()
-		ln.Close()
+		_ = ln.Close()
 	}
 }

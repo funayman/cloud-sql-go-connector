@@ -27,9 +27,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"cloud.google.com/go/cloudsqlconn/errtype"
-	"cloud.google.com/go/cloudsqlconn/internal/cloudsql"
-	"cloud.google.com/go/cloudsqlconn/internal/trace"
+	"github.com/funayman/cloud-sql-go-connector/errtype"
+	"github.com/funayman/cloud-sql-go-connector/internal/cloudsql"
+	"github.com/funayman/cloud-sql-go-connector/internal/trace"
 	"github.com/google/uuid"
 	"golang.org/x/net/proxy"
 	"golang.org/x/oauth2"
@@ -188,7 +188,7 @@ func NewDialer(ctx context.Context, opts ...Option) (*Dialer, error) {
 func (d *Dialer) Dial(ctx context.Context, instance string, opts ...DialOption) (conn net.Conn, err error) {
 	startTime := time.Now()
 	var endDial trace.EndSpanFunc
-	ctx, endDial = trace.StartSpan(ctx, "cloud.google.com/go/cloudsqlconn.Dial",
+	ctx, endDial = trace.StartSpan(ctx, "github.com/funayman/cloud-sql-go-connector.Dial",
 		trace.AddInstanceName(instance),
 		trace.AddDialerID(d.dialerID),
 	)
@@ -207,7 +207,7 @@ func (d *Dialer) Dial(ctx context.Context, instance string, opts ...DialOption) 
 	}
 
 	var endInfo trace.EndSpanFunc
-	ctx, endInfo = trace.StartSpan(ctx, "cloud.google.com/go/cloudsqlconn/internal.InstanceInfo")
+	ctx, endInfo = trace.StartSpan(ctx, "github.com/funayman/cloud-sql-go-connector/internal.InstanceInfo")
 	i := d.instance(cn, &cfg.refreshCfg)
 	addr, tlsCfg, err := i.ConnectInfo(ctx, cfg.ipType)
 	if err != nil {
@@ -218,7 +218,7 @@ func (d *Dialer) Dial(ctx context.Context, instance string, opts ...DialOption) 
 	endInfo(err)
 
 	var connectEnd trace.EndSpanFunc
-	ctx, connectEnd = trace.StartSpan(ctx, "cloud.google.com/go/cloudsqlconn/internal.Connect")
+	ctx, connectEnd = trace.StartSpan(ctx, "github.com/funayman/cloud-sql-go-connector/internal.Connect")
 	defer func() { connectEnd(err) }()
 	addr = net.JoinHostPort(addr, serverProxyPort)
 	f := d.dialFunc

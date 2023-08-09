@@ -35,8 +35,8 @@
 //	    "context"
 //	    "net"
 //
-//	    "cloud.google.com/go/cloudsqlconn"
-//	    "github.com/jackc/pgx/v4/pgxpool"
+//	    "github.com/funayman/cloud-sql-go-connector"
+//	    "github.com/jackc/pgx/v5/pgxpool"
 //	)
 //
 //	func connect() {
@@ -69,7 +69,7 @@
 //	    // ... etc
 //	}
 //
-// To use [database/sql], call pgxv4.RegisterDriver with any necessary Dialer
+// To use [database/sql], call pgxv5.RegisterDriver with any necessary Dialer
 // configuration.
 //
 // Note: the connection string must use the keyword/value format
@@ -80,13 +80,13 @@
 //	import (
 //	    "database/sql"
 //
-//	    "cloud.google.com/go/cloudsqlconn"
-//	    "cloud.google.com/go/cloudsqlconn/postgres/pgxv4"
+//	    "github.com/funayman/cloud-sql-go-connector"
+//	    "github.com/funayman/cloud-sql-go-connector/postgres/pgxv5"
 //	)
 //
 //	func connect() {
 //	    // adjust options as needed
-//	    cleanup, err := pgxv4.RegisterDriver("cloudsql-postgres", cloudsqlconn.WithIAMAuthN())
+//	    cleanup, err := pgxv5.RegisterDriver("cloudsql-postgres", cloudsqlconn.WithIAMAuthN())
 //	    if err != nil {
 //	    	// ... handle error
 //	    }
@@ -111,8 +111,8 @@
 //	import (
 //	    "database/sql"
 //
-//	    "cloud.google.com/go/cloudsqlconn"
-//	    "cloud.google.com/go/cloudsqlconn/mysql/mysql"
+//	    "github.com/funayman/cloud-sql-go-connector"
+//	    "github.com/funayman/cloud-sql-go-connector/mysql/mysql"
 //	)
 //
 //	func connect() {
@@ -142,8 +142,8 @@
 //	import (
 //	    "database/sql"
 //
-//	    "cloud.google.com/go/cloudsqlconn"
-//	    "cloud.google.com/go/cloudsqlconn/sqlserver/mssql"
+//	    "github.com/funayman/cloud-sql-go-connector"
+//	    "github.com/funayman/cloud-sql-go-connector/sqlserver/mssql"
 //	)
 //
 //	func connect() {
@@ -163,5 +163,5 @@
 //
 // [database/sql]: https://pkg.go.dev/database/sql
 // [pgx]: https://github.com/jackc/pgx
-// [pgxpool]: https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool
+// [pgxpool]: https://pkg.go.dev/github.com/jackc/pgx/v5/pgxpool
 package cloudsqlconn

@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"cloud.google.com/go/cloudsqlconn/sqlserver/mssql"
+	"github.com/funayman/cloud-sql-go-connector/sqlserver/mssql"
 )
 
 var (

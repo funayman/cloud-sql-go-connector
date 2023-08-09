@@ -1,5 +1,5 @@
 <p align="center">
-    <a href="https://pkg.go.dev/cloud.google.com/go/cloudsqlconn">
+    <a href="https://pkg.go.dev/github.com/funayman/cloud-sql-go-connector">
         <img src="docs/images/cloud-sql-go-connector.png" alt="cloud-sql-go-connector image">
     </a>
 </p>
@@ -12,8 +12,8 @@
 
 [ci-badge]: https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/actions/workflows/tests.yaml/badge.svg?event=push
 [ci-build]: https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/actions/workflows/tests.yaml?query=event%3Apush+branch%3Amain
-[pkg-badge]: https://pkg.go.dev/badge/cloud.google.com/go/cloudsqlconn.svg
-[pkg-docs]: https://pkg.go.dev/cloud.google.com/go/cloudsqlconn
+[pkg-badge]: https://pkg.go.dev/badge/github.com/funayman/cloud-sql-go-connector.svg
+[pkg-docs]: https://pkg.go.dev/github.com/funayman/cloud-sql-go-connector
 [codelab-badge]: https://img.shields.io/badge/Open%20In%20Codelab-blue?labelColor=grey&style=flat&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAyVBMVEX////////////////////////+8/L0oZrrTkHqQzXzlY13yKEPnVgdo2KHzqvw+fX4xMDtWk604MssqWz73NnvcWdKtYHS7eD85+ZowpayncOWapvVS0360MzD5tWW1LZxo/dChfSLaKHfR0FMhe2rY4TyiYBlm/bQ4Pz+7sD7xCPPthRJpkegwvl9q/fn8P7+9+D80VL7vASisCQsoU4spV393YHPwDm40ftNjPX7wBP95qHz9/7/++/b6P3+8tD8zUKIsvj81WJbutStAAAABnRSTlMAIKDw/zDiNY+eAAAA+klEQVR4AbzRRYICMRRF0VB5QLlrO+7uDvvfVKfSv91mnGlunDFWUDh+xJUCE4ocv+JFMZ/jD7zAFPxJYRx/4gz/uGpQKquaDsEwLdv5HrieJriAbwqB/yUII00qA7YpxcmHoKRrJAUSk2QOKLi5vdMk7x7CQ0CF9fgSPFUqlWpN09QyiG1REsugkqs3miW8cTIqHApyrTbedLq9vgzkCoMKGY4gjSdTYTY3F74M0G5VyADCckpWnbd3WG+oaAMdGt7uPj7UfvC2BC2wPIACMspvuzkCp60YPo9/+M328LKHcHiek6EmnRMMAUAw2RPMOASzHsHMSzD7AwCdmyeTDUqFKQAAAABJRU5ErkJggg==
 [codelab]: https://codelabs.developers.google.com/codelabs/cloud-sql-go-connector
 
@@ -43,7 +43,7 @@ For a quick example, try out the Go Connector in a [Codelab][codelab].
 
 You can install this repo with `go get`:
 ```sh
-go get cloud.google.com/go/cloudsqlconn
+go get github.com/funayman/cloud-sql-go-connector
 ```
 
 ## Usage
@@ -96,7 +96,7 @@ using [pgx][] directly. See [pgx's advice on which to choose][pgx-advice].
 ##### Using the dialer with pgx
 
 To use the dialer with [pgx][], we recommend using connection pooling with
-[pgxpool](https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool) by configuring
+[pgxpool](https://pkg.go.dev/github.com/jackc/pgx/v5/pgxpool) by configuring
 a [Config.DialFunc][dial-func] like so:
 
 ``` go
@@ -104,8 +104,8 @@ import (
     "context"
     "net"
 
-    "cloud.google.com/go/cloudsqlconn"
-    "github.com/jackc/pgx/v4/pgxpool"
+    "github.com/funayman/cloud-sql-go-connector"
+    "github.com/jackc/pgx/v5/pgxpool"
 )
 
 func connect() {
@@ -143,7 +143,7 @@ func connect() {
 
 ##### Using the dialer with `database/sql`
 
-To use `database/sql`, call `pgxv4.RegisterDriver` with any necessary Dialer
+To use `database/sql`, call `pgxv5.RegisterDriver` with any necessary Dialer
 configuration. Note: the connection string must use the keyword/value format
 with host set to the instance connection name. The returned `cleanup` func
 will stop the dialer's background refresh goroutine and so should only be called
@@ -153,12 +153,12 @@ when you're done with the `Dialer`.
 import (
     "database/sql"
 
-    "cloud.google.com/go/cloudsqlconn"
-    "cloud.google.com/go/cloudsqlconn/postgres/pgxv4"
+    "github.com/funayman/cloud-sql-go-connector"
+    "github.com/funayman/cloud-sql-go-connector/postgres/pgxv5"
 )
 
 func connect() {
-    cleanup, err := pgxv4.RegisterDriver("cloudsql-postgres", cloudsqlconn.WithIAMAuthN())
+    cleanup, err := pgxv5.RegisterDriver("cloudsql-postgres", cloudsqlconn.WithIAMAuthN())
     if err != nil {
         // ... handle error
     }
@@ -184,8 +184,8 @@ when you're done with the `Dialer`.
 import (
     "database/sql"
 
-    "cloud.google.com/go/cloudsqlconn"
-    "cloud.google.com/go/cloudsqlconn/mysql/mysql"
+    "github.com/funayman/cloud-sql-go-connector"
+    "github.com/funayman/cloud-sql-go-connector/mysql/mysql"
 )
 
 func connect() {
@@ -215,8 +215,8 @@ when you're done with the `Dialer`.
 import (
     "database/sql"
 
-    "cloud.google.com/go/cloudsqlconn"
-    "cloud.google.com/go/cloudsqlconn/sqlserver/mssql"
+    "github.com/funayman/cloud-sql-go-connector"
+    "github.com/funayman/cloud-sql-go-connector/sqlserver/mssql"
 )
 
 func connect() {
@@ -345,11 +345,11 @@ Supported metrics include:
 
 Supported traces include:
 
-- `cloud.google.com/go/cloudsqlconn.Dial`: The dial operation including
+- `github.com/funayman/cloud-sql-go-connector.Dial`: The dial operation including
   refreshing an ephemeral certificate and connecting the instance
-- `cloud.google.com/go/cloudsqlconn/internal.InstanceInfo`: The call to retrieve
+- `github.com/funayman/cloud-sql-go-connector/internal.InstanceInfo`: The call to retrieve
   instance metadata (e.g., database engine type, IP address, etc)
-- `cloud.google.com/go/cloudsqlconn/internal.Connect`: The connection attempt
+- `github.com/funayman/cloud-sql-go-connector/internal.Connect`: The connection attempt
   using the ephemeral certificate
 - SQL Admin API client operations
 

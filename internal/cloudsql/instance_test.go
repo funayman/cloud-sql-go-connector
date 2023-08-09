@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"cloud.google.com/go/cloudsqlconn/errtype"
-	"cloud.google.com/go/cloudsqlconn/internal/mock"
+	"github.com/funayman/cloud-sql-go-connector/errtype"
+	"github.com/funayman/cloud-sql-go-connector/internal/mock"
 )
 
 // genRSAKey generates an RSA key used for test.

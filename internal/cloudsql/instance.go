@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"cloud.google.com/go/cloudsqlconn/errtype"
+	"github.com/funayman/cloud-sql-go-connector/errtype"
 	"golang.org/x/oauth2"
 	"golang.org/x/time/rate"
 	sqladmin "google.golang.org/api/sqladmin/v1beta4"

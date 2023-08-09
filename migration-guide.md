@@ -43,8 +43,8 @@ func connectMySQL() *sql.DB {
 import (
 	"database/sql"
 
-	"cloud.google.com/go/cloudsqlconn"
-	"cloud.google.com/go/cloudsqlconn/mysql/mysql"
+	"github.com/funayman/cloud-sql-go-connector"
+	"github.com/funayman/cloud-sql-go-connector/mysql/mysql"
 )
 
 func connectMySQL() *sql.DB {
@@ -100,13 +100,13 @@ func connectPostgres() *sql.DB {
 import (
 	"database/sql"
 
-	"cloud.google.com/go/cloudsqlconn"
-	"cloud.google.com/go/cloudsqlconn/postgres/pgxv4"
+	"github.com/funayman/cloud-sql-go-connector"
+	"github.com/funayman/cloud-sql-go-connector/postgres/pgxv5"
 )
 
 func connectPostgres() *sql.DB {
 	// Register a driver using whatever name you like.
-	cleanup, err := pgxv4.RegisterDriver(
+	cleanup, err := pgxv5.RegisterDriver(
 		"cloudsql-postgres",
 		// any desired options go here, for example:
 		cloudsqlconn.WithCredentialsFile("key.json"),
@@ -141,8 +141,8 @@ The Cloud SQL Proxy does not support SQL Server as a driver.
 import (
 	"database/sql"
 
-	"cloud.google.com/go/cloudsqlconn"
-	"cloud.google.com/go/cloudsqlconn/sqlserver/mssql"
+	"github.com/funayman/cloud-sql-go-connector"
+	"github.com/funayman/cloud-sql-go-connector/sqlserver/mssql"
 )
 
 func connectSQLServer() *sql.DB {

@@ -24,8 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/cloudsqlconn/errtype"
-	"cloud.google.com/go/cloudsqlconn/internal/trace"
+	"github.com/funayman/cloud-sql-go-connector/errtype"
+	"github.com/funayman/cloud-sql-go-connector/internal/trace"
 	"golang.org/x/oauth2"
 	sqladmin "google.golang.org/api/sqladmin/v1beta4"
 )
@@ -55,7 +55,7 @@ type metadata struct {
 // connections.
 func fetchMetadata(ctx context.Context, client *sqladmin.Service, inst ConnName) (m metadata, err error) {
 	var end trace.EndSpanFunc
-	ctx, end = trace.StartSpan(ctx, "cloud.google.com/go/cloudsqlconn/internal.FetchMetadata")
+	ctx, end = trace.StartSpan(ctx, "github.com/funayman/cloud-sql-go-connector/internal.FetchMetadata")
 	defer func() { end(err) }()
 	db, err := client.Connect.Get(inst.project, inst.name).Context(ctx).Do()
 	if err != nil {
@@ -140,7 +140,7 @@ func fetchEphemeralCert(
 	ts oauth2.TokenSource,
 ) (c tls.Certificate, err error) {
 	var end trace.EndSpanFunc
-	ctx, end = trace.StartSpan(ctx, "cloud.google.com/go/cloudsqlconn/internal.FetchEphemeralCert")
+	ctx, end = trace.StartSpan(ctx, "github.com/funayman/cloud-sql-go-connector/internal.FetchEphemeralCert")
 	defer func() { end(err) }()
 	clientPubKey, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
 	if err != nil {
@@ -308,7 +308,7 @@ type refresher struct {
 // SQL Admin API.
 func (r refresher) performRefresh(ctx context.Context, cn ConnName, k *rsa.PrivateKey, iamAuthN bool) (rr refreshResult, err error) {
 	var refreshEnd trace.EndSpanFunc
-	ctx, refreshEnd = trace.StartSpan(ctx, "cloud.google.com/go/cloudsqlconn/internal.RefreshConnection",
+	ctx, refreshEnd = trace.StartSpan(ctx, "github.com/funayman/cloud-sql-go-connector/internal.RefreshConnection",
 		trace.AddInstanceName(cn.String()),
 	)
 	defer func() {

@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"time"
 
-	"cloud.google.com/go/cloudsqlconn/errtype"
-	"cloud.google.com/go/cloudsqlconn/internal/cloudsql"
+	"github.com/funayman/cloud-sql-go-connector/errtype"
+	"github.com/funayman/cloud-sql-go-connector/internal/cloudsql"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	apiopt "google.golang.org/api/option"

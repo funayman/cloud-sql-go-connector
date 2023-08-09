@@ -18,7 +18,7 @@ import (
 	"errors"
 	"testing"
 
-	"cloud.google.com/go/cloudsqlconn/errtype"
+	"github.com/funayman/cloud-sql-go-connector/errtype"
 )
 
 func TestErrorFormatting(t *testing.T) {

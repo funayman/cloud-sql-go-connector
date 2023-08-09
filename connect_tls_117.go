@@ -22,8 +22,8 @@ import (
 	"crypto/tls"
 	"net"
 
-	"cloud.google.com/go/cloudsqlconn/errtype"
-	"cloud.google.com/go/cloudsqlconn/internal/cloudsql"
+	"github.com/funayman/cloud-sql-go-connector/errtype"
+	"github.com/funayman/cloud-sql-go-connector/internal/cloudsql"
 )
 
 // connectTLS returns a new TLS client side connection

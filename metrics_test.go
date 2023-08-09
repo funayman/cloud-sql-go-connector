@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"cloud.google.com/go/cloudsqlconn/internal/mock"
+	"github.com/funayman/cloud-sql-go-connector/internal/mock"
 	"go.opencensus.io/stats/view"
 )
 

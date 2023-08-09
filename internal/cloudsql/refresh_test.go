@@ -25,8 +25,8 @@ import (
 	"testing"
 	"time"
 
-	"cloud.google.com/go/cloudsqlconn/errtype"
-	"cloud.google.com/go/cloudsqlconn/internal/mock"
+	"github.com/funayman/cloud-sql-go-connector/errtype"
+	"github.com/funayman/cloud-sql-go-connector/internal/mock"
 	"golang.org/x/oauth2"
 )
 

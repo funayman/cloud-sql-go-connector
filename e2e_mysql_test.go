@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"cloud.google.com/go/cloudsqlconn"
-	"cloud.google.com/go/cloudsqlconn/mysql/mysql"
+	"github.com/funayman/cloud-sql-go-connector"
+	"github.com/funayman/cloud-sql-go-connector/mysql/mysql"
 	gomysql "github.com/go-sql-driver/mysql"
 )
 

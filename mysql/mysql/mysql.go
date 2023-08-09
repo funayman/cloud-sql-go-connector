@@ -24,7 +24,7 @@ import (
 	"net"
 	"syscall"
 
-	"cloud.google.com/go/cloudsqlconn"
+	"github.com/funayman/cloud-sql-go-connector"
 	"github.com/go-sql-driver/mysql"
 )
 

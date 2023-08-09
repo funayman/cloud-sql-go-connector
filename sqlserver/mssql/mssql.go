@@ -22,7 +22,7 @@ import (
 	"database/sql/driver"
 	"net"
 
-	"cloud.google.com/go/cloudsqlconn"
+	"github.com/funayman/cloud-sql-go-connector"
 	mssqldb "github.com/microsoft/go-mssqldb"
 	"github.com/microsoft/go-mssqldb/msdsn"
 )

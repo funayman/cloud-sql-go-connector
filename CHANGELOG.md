@@ -229,10 +229,10 @@
 * improve reliablity of refresh operations ([#49](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/49)) ([3a52440](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/3a5244075f68f3c95f26218f9008bb7451934f80))
 * improve RSA keypair generation ([#10](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/10)) ([e2a5238](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/e2a52388ff047144272089db60cb0b1fce7c16bf))
 * initialize dialer in register func ([#73](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/73)) ([7633cfd](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/7633cfd2eaadeef065686f85ae9f2faa5087e917))
-* **postgres/pgxv4:** add support for postgres driver ([#61](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/61)) ([295a5dc](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/295a5dcfbdaeb12884333e678f8b9f7f44de2b46))
+* **postgres/pgxv5:** add support for postgres driver ([#61](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/61)) ([295a5dc](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/295a5dcfbdaeb12884333e678f8b9f7f44de2b46))
 * remove singleton Dial ([#92](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/92)) ([0a1966c](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/0a1966c4fe0400e8dcd14b2531db20ad7bc10855))
 * return cleanup func to close dialer ([#75](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/75)) ([fa9b845](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/fa9b84576a7adcf8f0ad4296723685d681ada89e))
-* use cloud.google.com/go/cloudsqlconn ([#30](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/30)) ([a251fd7](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/a251fd727813223dc08f40bc5060add3235564e6))
+* use github.com/funayman/cloud-sql-go-connector ([#30](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/issues/30)) ([a251fd7](https://github.com/GoogleCloudPlatform/cloud-sql-go-connector/commit/a251fd727813223dc08f40bc5060add3235564e6))
 
 
 ### Bug Fixes
